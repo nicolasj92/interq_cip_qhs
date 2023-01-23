@@ -1,15 +1,17 @@
 import json
 import h5py
 import os
-import time
 import ciso8601
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 
 
-class MillingData:
-    def __init__(self):
+class MillingProcessData:
+    def __init__(self, path_data):
+        self._path = path_data
+        self._init_path_dict()
         self.processes = [
             "side_1_aussenkontur_schruppen_schlichten",
             "side_1_bohren",
@@ -59,6 +61,13 @@ class MillingData:
             "aaLoad5",
             "aaLoad6",
         ]
+
+    def _init_path_dict(self):
+        p = Path(self._path)
+        subdirectories = [x for x in p.iterdir() if x.is_dir()]
+        self._part_id_paths = {
+            os.path.basename(path).split("_")[0]: path for path in subdirectories
+        }
 
     def get_sorted_timestamps_processes(self, ts_data):
         timestamps = np.array([float(key) * 1e6 for key in ts_data.keys()])
@@ -193,13 +202,18 @@ class MillingData:
             ) / 1e6
         return processing_times
 
-    def get_process_QH(self, path):
+    def get_process_QH_path(self, path):
         part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
         process_times = self.get_processing_times(acc_data)
         acc_features = self.extract_acc_features(acc_data)
         bfc_features = self.extract_bfc_features(bfc_data)
 
-        qh_document = {"part_id": part_id, "processes": {}}
+        qh_document = {
+            "part_id": part_id,
+            "part": "cylinder_bottom",
+            "process": "milling",
+            "processes": {},
+        }
         for process_name in self.processes:
             qh_document["processes"][process_name] = {
                 "processing_time": process_times[process_name]
@@ -214,6 +228,9 @@ class MillingData:
             }
 
         return qh_document
+
+    def get_process_QH_id(self, id):
+        return self.get_process_QH_path(self._part_id_paths[id])
 
 
 if __name__ == "__main__":
