@@ -219,11 +219,11 @@ class MillingProcessData:
                 "processing_time": process_times[process_name]
             }
             qh_document["processes"][process_name]["features_acc"] = {
-                feature: acc_features.loc[process_name, feature]
+                "IND_" + feature: acc_features.loc[process_name, feature]
                 for feature in acc_features.columns
             }
             qh_document["processes"][process_name]["features_bfc"] = {
-                feature: bfc_features.loc[process_name, feature]
+                "IND_" + feature: bfc_features.loc[process_name, feature]
                 for feature in bfc_features.columns
             }
 
