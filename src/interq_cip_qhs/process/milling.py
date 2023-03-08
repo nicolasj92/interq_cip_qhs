@@ -2,6 +2,7 @@ import json
 import h5py
 import os
 import ciso8601
+import datetime
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -9,7 +10,10 @@ from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 
 
 class MillingProcessData:
-    def __init__(self, path_data):
+    def __init__(self, cid, pwd, path_data):
+        self.cid = cid
+        self.pwd = pwd
+        self.owner = "ptw"
         self._path = path_data
         self._init_path_dict()
         self.processes = [
@@ -200,29 +204,39 @@ class MillingProcessData:
             processing_times[process_name] = (
                 process_data.time.iloc[-1] - process_data.time.iloc[0]
             ) / 1e6
-        return processing_times
+            process_end_ts = process_data.time.iloc[-1]
+        return process_end_ts, processing_times
+
+    def publish_process_QH_id(self, path):
+        pass
 
     def get_process_QH_path(self, path):
         part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
-        process_times = self.get_processing_times(acc_data)
+        process_end_ts, process_times = self.get_processing_times(acc_data)
         acc_features = self.extract_acc_features(acc_data)
         bfc_features = self.extract_bfc_features(bfc_data)
 
         qh_document = {
-            "part_id": part_id,
-            "part": "cylinder_bottom",
-            "process": "milling",
-            "processes": {},
+            "pwd": self.pwd,
+            "cid": self.cid,
+            "qhd-header": {
+                "owner": self.owner,
+                "subject": f"part::cylinder_bottom,part_id::{part_id},process::milling",
+                "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).isoformat(),
+            },
+            "qhd-body": {
+            
+            }
         }
         for process_name in self.processes:
-            qh_document["processes"][process_name] = {
+            qh_document["qhd-body"][process_name] = {
                 "processing_time": process_times[process_name]
             }
-            qh_document["processes"][process_name]["features_acc"] = {
+            qh_document["qhd-body"][process_name]["features_acc"] = {
                 "IND_" + feature: acc_features.loc[process_name, feature]
                 for feature in acc_features.columns
             }
-            qh_document["processes"][process_name]["features_bfc"] = {
+            qh_document["qhd-body"][process_name]["features_bfc"] = {
                 "IND_" + feature: bfc_features.loc[process_name, feature]
                 for feature in bfc_features.columns
             }
