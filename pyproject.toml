@@ -11,7 +11,7 @@ authors = [
 description = "Package containing tools for generating InterQ quality hallmarks from the CiP learning factory data"
 readme = "README.md"
 requires-python = ">=3.7"
-dependencies = ["tsfresh", "numpy", "h5py", "ciso8601"]
+dependencies = ["tsfresh", "numpy", "h5py", "ciso8601", "docker", "requests"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
