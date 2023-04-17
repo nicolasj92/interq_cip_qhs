@@ -11,12 +11,13 @@ import math
 from pathlib import Path
 from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 from interq_cip_qhs.process.utils import copy_to_container, jprint
+import pprint
 
 
 class TurningProcessData:
     def __init__(self, path_data):
         self.owner = "ptw"
-        #self.docker_client = docker.from_env()
+        self.docker_client = docker.from_env()
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
         self._path = path_data
         self.process_name = "turning"
@@ -160,6 +161,38 @@ class TurningProcessData:
         process_end_ts = data.time.iloc[-1] *1e6
         return process_end_ts, processing_time
 
+
+    def get_data_QH_id(self, id, container_name, endpoint="http://localhost:8000/DuplicateRecords/"):
+        data = self.read_raw_from_id(id)
+
+        # Reformat timestamps to iso8601 for the data quality analysis to work
+        data.time = pd.to_datetime(data.time, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        # Save as .csv and copy into docker container
+        csv_path = os.path.join(self.tmp_dir, "tmp_data.csv")
+        print(csv_path)
+        data.to_csv(csv_path)
+ 
+        container = self.docker_client.containers.get(container_name)
+        copy_to_container(container, src=csv_path, dst_dir="/app/data/")               
+
+        # Call the containers rest API with a rule
+        query_params = {
+            "file_name": "tmp_data.csv",
+            "ts_column": "time",
+            "value_column_1": "actSpeed1",
+            "qhd_key": "interq_qhd"
+        }
+        response = requests.get(endpoint, params=query_params)
+        print(response)
+        print(type(response.content))
+        from pprint import pprint
+        response = json.loads(response.content)
+        jprint(response)
+
+        # Return the QHDs
+
+
     def get_process_QH_id(self, id, cid="6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1", pwd="interq"):
         data = self.read_raw_from_id(id)
         process_end_ts, process_time = self.get_processing_time(data)
@@ -167,23 +200,34 @@ class TurningProcessData:
         qh_document = {
             "pwd": pwd,
             "cid": cid,
-            "qhd-header": {
-                "owner": self.owner,
-                "subject": f"part::piston_rod,part_id::{id},process::turning",
-                "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).isoformat(),
-            },
-            "qhd-body": {
+            "qhd": {
+                "qhd-header" : {
+                    "owner": self.owner,
+                    "subject": "part::piston_rod,part_id::{id},process::turning",
+                    "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "model" : "ledom",
+                    "asset" : "tessa"
+                },
+                "qhd-body": {
             
+                }
             }
         }
-        qh_document["qhd-body"][self.process_name] = {
+        qh_document["qhd"]["qhd-body"][self.process_name] = {
             "processing_time": process_time
         }
-        qh_document["qhd-body"][self.process_name]["features"] = {
+        qh_document["qhd"]["qhd-body"][self.process_name]["features"] = {
             "IND_" + feature: features.loc[id, feature]
             for feature in features.columns
         }
         return qh_document
+
+    def publish_data_qh_id(self, id,  cid="6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1", pwd="interq", endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
+        qh_document = self.get_process_QH_id(id)
+        jprint(qh_document)
+        response = requests.post(endpoint, json = qh_document)
+        response = json.loads(response.content)
+        print(response)
 
 if __name__ == "__main__":
     pass
