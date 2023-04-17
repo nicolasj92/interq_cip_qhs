@@ -122,23 +122,34 @@ class SawingProcessData:
         qh_document = {
             "pwd": pwd,
             "cid": cid,
-            "qhd-header": {
-                "owner": self.owner,
-                "subject": f"part::piston_rod,part_id::{id},process::sawing",
-                "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).isoformat(),
-            },
-            "qhd-body": {
+            "qhd" : {
+                "qhd-header": {
+                    "owner": self.owner,
+                    "subject": f"part::piston_rod,part_id::{id},process::sawing",
+                    "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "model" : "ledom",
+                    "asset" : "tessa"
+                },
+                "qhd-body": {
             
+                }
             }
         }
-        qh_document["qhd-body"][self.process_name] = {
+        qh_document["qhd"]["qhd-body"][self.process_name] = {
             "processing_time": process_time
         }
-        qh_document["qhd-body"][self.process_name]["features"] = {
+        qh_document["qhd"]["qhd-body"][self.process_name]["features"] = {
             "IND_" + feature: features.loc[id, feature]
             for feature in features_dataframe.columns
         }
         return qh_document
+
+    def publish_data_qh_id(self, id, endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
+        qh_document = self.get_process_QH_id(id)
+        jprint(qh_document)
+        response = requests.post(endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
 
 if __name__ == "__main__":
     pass
