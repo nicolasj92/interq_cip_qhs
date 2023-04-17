@@ -241,7 +241,8 @@ class MillingProcessData:
         print(response)
         print(type(response.content))
         from pprint import pprint
-        pprint(json.loads(response.content))
+        response = json.loads(response.content)
+        print(response)
 
         # Return the QHDs
 
@@ -256,24 +257,28 @@ class MillingProcessData:
         qh_document = {
             "pwd": pwd,
             "cid": cid,
-            "qhd-header": {
-                "owner": self.owner,
-                "subject": f"part::cylinder_bottom,part_id::{part_id},process::milling",
-                "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).isoformat(),
-            },
-            "qhd-body": {
+            "qhd": {
+                "qhd-header" : {
+                    "owner": self.owner,
+                    "subject": f"part::cylinder_bottom,part_id::{part_id},process::milling",
+                    "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "model" : "ledom",
+                    "asset" : "tessa"
+                },
+                "qhd-body": {
             
-            }
+                }
+            },
         }
         for process_name in self.processes:
-            qh_document["qhd-body"][process_name] = {
+            qh_document["qhd"]["qhd-body"][process_name] = {
                 "processing_time": process_times[process_name]
             }
-            qh_document["qhd-body"][process_name]["features_acc"] = {
+            qh_document["qhd"]["qhd-body"][process_name]["features_acc"] = {
                 "IND_" + feature: acc_features.loc[process_name, feature]
                 for feature in acc_features.columns
             }
-            qh_document["qhd-body"][process_name]["features_bfc"] = {
+            qh_document["qhd"]["qhd-body"][process_name]["features_bfc"] = {
                 "IND_" + feature: bfc_features.loc[process_name, feature]
                 for feature in bfc_features.columns
             }
