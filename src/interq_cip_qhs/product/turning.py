@@ -39,10 +39,10 @@ class TurningProductData:
             "qhd": {
                 "qhd-header" : {
                     "owner": self.owner,
-                    "subject": "part::piston_rod,part_id::"+str(id)+",process::turning,type::measurement",
+                    "subject": "part::piston_rod,part_id::" +  id + ",process::turning",
                     "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "model" : "ledom",
-                    "asset" : "tessa"
+                    "model" : "None",
+                    "asset" : "type::product_qh"
                 },
                 "qhd-body": {
                     "IND_measurement_time": data["measurement_timestamp"],

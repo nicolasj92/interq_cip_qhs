@@ -125,10 +125,10 @@ class SawingProcessData:
             "qhd" : {
                 "qhd-header": {
                     "owner": self.owner,
-                    "subject": "part::piston_rod,part_id::{id},process::sawing",
+                    "subject": "part::piston_rod,part_id::" + id + ",process::sawing,type::process",
                     "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "model" : "ledom",
-                    "asset" : "tessa"
+                    "model" : "None",
+                    "asset" : "type::process_qh"
                 },
                 "qhd-body": {
             
@@ -178,15 +178,18 @@ class SawingProcessData:
         return response
 
     def publish_data_QH_id(self, id, container_name):
-        qh_document = self.get_data_QH_id(id, container_name)
-        #qh_document["qhd"]["qhd-header"]["timeref"] Datum wo qh erstellt wurde oder Datum der Prozessdaten?
+        process_qh = self.get_process_QH_id(id)
+        data_qh = self.get_data_QH_id(id, container_name)
+        data_qh["qhd"]["qhd-header"]["timeref"] = process_qh["qhd"]["qhd-header"]["timeref"]
+        data_qh["qhd"]["qhd-header"]["subject"] = process_qh["qhd"]["qhd-header"]["subject"]
+        data_qh["qhd"]["qhd-header"]["asset"] = "type::data_qh"
+        data_qh["qhd"]["qhd-header"]["model"] = "None"
         # reformatting so that endpoint accepts it
-        del qh_document["qhd"]["qhd-header"]["partID"]
-        del qh_document["qhd"]["qhd-header"]["processID"]
-        qh_document["pwd"] = self.pwd[0]
-        qh_document["cid"] = self.cid[0]
-
-        response = requests.post(self.api_endpoint, json = qh_document)
+        del data_qh["qhd"]["qhd-header"]["partID"]
+        del data_qh["qhd"]["qhd-header"]["processID"]
+        data_qh["pwd"] = self.pwd[0]
+        data_qh["cid"] = self.cid[0]
+        response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
         return response
 

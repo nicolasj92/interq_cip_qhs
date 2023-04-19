@@ -39,10 +39,10 @@ class MillingProductData:
             "qhd": {
                 "qhd-header" : {
                     "owner": self.owner,
-                    "subject": "part::cylinder_bottom,part_id::"+str(id)+",process::milling,type::measurement",
+                    "subject": "part::cylinder_bottom,part_id::" + id + ",process::milling",
                     "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "model" : "ledom",
-                    "asset" : "tessa"
+                    "model" : "None",
+                    "asset" : "type::product_qh"
                 },
                 "qhd-body": {
                     "IND_measurement_time": data["measurement_timestamp"],
