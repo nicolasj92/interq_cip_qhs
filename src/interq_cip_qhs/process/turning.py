@@ -21,6 +21,10 @@ class TurningProcessData:
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
         self._path = path_data
         self.process_name = "turning"
+        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
+        self.pwd = "interq"
+        self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
+        self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
         self.features = [
             "time",
             "NCLine",
@@ -161,45 +165,13 @@ class TurningProcessData:
         process_end_ts = data.time.iloc[-1] *1e6
         return process_end_ts, processing_time
 
-
-    def get_data_QH_id(self, id, container_name, endpoint="http://localhost:8000/DuplicateRecords/"):
-        data = self.read_raw_from_id(id)
-
-        # Reformat timestamps to iso8601 for the data quality analysis to work
-        data.time = pd.to_datetime(data.time, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-        
-        # Save as .csv and copy into docker container
-        csv_path = os.path.join(self.tmp_dir, "tmp_data.csv")
-        print(csv_path)
-        data.to_csv(csv_path)
- 
-        container = self.docker_client.containers.get(container_name)
-        copy_to_container(container, src=csv_path, dst_dir="/app/data/")               
-
-        # Call the containers rest API with a rule
-        query_params = {
-            "file_name": "tmp_data.csv",
-            "ts_column": "time",
-            "value_column_1": "actSpeed1",
-            "qhd_key": "interq_qhd"
-        }
-        response = requests.get(endpoint, params=query_params)
-        print(response)
-        print(type(response.content))
-        from pprint import pprint
-        response = json.loads(response.content)
-        jprint(response)
-
-        # Return the QHDs
-
-
-    def get_process_QH_id(self, id, cid="6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1", pwd="interq"):
+    def get_process_QH_id(self, id):
         data = self.read_raw_from_id(id)
         process_end_ts, process_time = self.get_processing_time(data)
         features = self.extract_features(data)
         qh_document = {
-            "pwd": pwd,
-            "cid": cid,
+            "pwd": self.pwd,
+            "cid": self.cid,
             "qhd": {
                 "qhd-header" : {
                     "owner": self.owner,
@@ -222,12 +194,51 @@ class TurningProcessData:
         }
         return qh_document
 
-    def publish_data_qh_id(self, id,  cid="6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1", pwd="interq", endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
-        qh_document = self.get_process_QH_id(id)
-        jprint(qh_document)
-        response = requests.post(endpoint, json = qh_document)
+    def get_data_QH_id(self, id, container_name):
+        data = self.read_raw_from_id(id)
+
+        # Reformat timestamps to iso8601 for the data quality analysis to work
+        data.time = pd.to_datetime(data.time, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Save as .csv and copy into docker container
+        csv_path = os.path.join(self.tmp_dir, "tmp_data.csv")
+        data.to_csv(csv_path)
+ 
+        container = self.docker_client.containers.get(container_name)
+        copy_to_container(container, src=csv_path, dst_dir="/app/data/")               
+
+        # Call the containers rest API with a rule
+        query_params = {
+            "file_name": "tmp_data.csv",
+            "ts_column": "time",
+            "value_column_1": "actSpeed1",
+            "qhd_key": "interq_qhd"
+        }
+        response = requests.get(self.dqaas_endpoint, params=query_params)
         response = json.loads(response.content)
-        print(response)
+        return response
+
+
+
+    def publish_process_QH_id(self, id):
+        qh_document = self.get_process_QH_id(id)
+        response = requests.post(self.api_endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
+
+    def publish_data_QH_id(self, id, container_name):
+        qh_document = self.get_data_QH_id(id, container_name)
+        #qh_document["qhd"]["qhd-header"]["timeref"] Datum wo qh erstellt wurde oder Datum der Prozessdaten?
+
+        # reformatting so that endpoint accepts it
+        del qh_document["qhd"]["qhd-header"]["partID"]
+        del qh_document["qhd"]["qhd-header"]["processID"]
+        qh_document["pwd"] = self.pwd
+        qh_document["cid"] = self.cid
+
+        response = requests.post(self.api_endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
 
 if __name__ == "__main__":
     pass

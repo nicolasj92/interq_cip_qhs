@@ -15,10 +15,14 @@ from interq_cip_qhs.process.utils import copy_to_container, jprint
 class SawingProcessData:
     def __init__(self, path_data):
         self.owner = "ptw"
-        #self.docker_client = docker.from_env()
+        self.docker_client = docker.from_env()
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
         self._path = path_data
         self.process_name = "cutting"
+        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
+        self.pwd = "interq"
+        self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
+        self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
         self.features = [
             "CPU_Kuehler_Temp",
             "CPU_Temp",
@@ -89,9 +93,6 @@ class SawingProcessData:
             print("Failed to find dataset: " + str(id) + " in file " + str(path))
             exit()
         data_arr = np.array(data_arr[:-1])
-        print(len(data_arr))
-        print(len(self.features))
-        print("do feature size fit?")
         dataframes = []
         for i in range(len(data_arr)):
             data_df = pd.DataFrame(
@@ -110,7 +111,7 @@ class SawingProcessData:
         return process_end_ts, processing_time
             
 
-    def get_process_QH_id(self, id, cid="6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1", pwd="interq"):
+    def get_process_QH_id(self, id):
         dataframes = self.read_raw_from_id(id)
         process_end_ts, process_time = self.get_processing_time(dataframes[0])
         features_dataframe = "uninitialized"
@@ -118,14 +119,13 @@ class SawingProcessData:
         for dataframe in dataframes:
             features = self.extract_features(dataframe)
             features_dataframe = pd.concat([features_dataframe, features], axis=1)
-        print(features_dataframe)
         qh_document = {
-            "pwd": pwd,
-            "cid": cid,
+            "pwd": self.pwd[0],
+            "cid": self.cid[0],
             "qhd" : {
                 "qhd-header": {
                     "owner": self.owner,
-                    "subject": f"part::piston_rod,part_id::{id},process::sawing",
+                    "subject": "part::piston_rod,part_id::{id},process::sawing",
                     "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
                     "model" : "ledom",
                     "asset" : "tessa"
@@ -139,15 +139,54 @@ class SawingProcessData:
             "processing_time": process_time
         }
         qh_document["qhd"]["qhd-body"][self.process_name]["features"] = {
-            "IND_" + feature: features.loc[id, feature]
+            "IND_" + feature: features_dataframe.loc[id, feature]
             for feature in features_dataframe.columns
         }
         return qh_document
 
-    def publish_data_qh_id(self, id, endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
+    def get_data_QH_id(self, id, container_name):
+        dataframes = self.read_raw_from_id(id)
+
+        field = 13 # select data field here
+        data = dataframes[field]
+
+        # Reformat timestamps to iso8601 for the data quality analysis to work
+        data.time = pd.to_datetime(data.time, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Save as .csv and copy into docker container
+        csv_path = os.path.join(self.tmp_dir, "tmp_data.csv")
+        data.to_csv(csv_path)
+ 
+        container = self.docker_client.containers.get(container_name)
+        copy_to_container(container, src=csv_path, dst_dir="/app/data/")               
+
+        # Call the containers rest API with a rule
+        query_params = {
+            "file_name": "tmp_data.csv",
+            "ts_column": "time",
+            "value_column_1": self.features[field],
+            "qhd_key": "interq_qhd"
+        }
+        response = requests.get(self.dqaas_endpoint, params=query_params)
+        response = json.loads(response.content)
+        return response
+
+    def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
-        jprint(qh_document)
-        response = requests.post(endpoint, json = qh_document)
+        response = requests.post(self.api_endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
+
+    def publish_data_QH_id(self, id, container_name):
+        qh_document = self.get_data_QH_id(id, container_name)
+        #qh_document["qhd"]["qhd-header"]["timeref"] Datum wo qh erstellt wurde oder Datum der Prozessdaten?
+        # reformatting so that endpoint accepts it
+        del qh_document["qhd"]["qhd-header"]["partID"]
+        del qh_document["qhd"]["qhd-header"]["processID"]
+        qh_document["pwd"] = self.pwd[0]
+        qh_document["cid"] = self.cid[0]
+
+        response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
         return response
 

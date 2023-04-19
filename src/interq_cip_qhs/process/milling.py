@@ -19,6 +19,10 @@ class MillingProcessData:
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
         self._path = path_data
         self._init_path_dict()
+        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
+        self.pwd = "interq"
+        self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
+        self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
         self.processes = [
             "side_1_aussenkontur_schruppen_schlichten",
             "side_1_bohren",
@@ -210,57 +214,19 @@ class MillingProcessData:
             process_end_ts = process_data.time.iloc[-1]
         return process_end_ts, processing_times
 
-    def get_data_QH_id(self, id, container_name):
-        return self.get_data_QH_path(self._part_id_paths[id], container_name)
-
-    def get_data_QH_path(self, path, container_name, endpoint="http://localhost:8000/DuplicateRecords/"):
-        part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
-
-        # Reformat timestamps to iso8601 for the data quality analysis to work
-        acc_data.time = pd.to_datetime(acc_data.time/1e6, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-        bfc_data.time = pd.to_datetime(bfc_data.time/1e6, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-        
-        # Save as .csv and copy into docker container
-        acc_path = os.path.join(self.tmp_dir, "tmp_acc_data.csv")
-        bfc_path = os.path.join(self.tmp_dir, "tmp_bfc_data.csv")
-        acc_data.to_csv(acc_path)
-        bfc_data.to_csv(bfc_path)
-
-        container = self.docker_client.containers.get(container_name)
-        copy_to_container(container, src=acc_path, dst_dir="/app/data/")               
-        copy_to_container(container, src=bfc_path, dst_dir="/app/data/")
-
-        # Call the containers rest API with a rule
-        query_params = {
-            "file_name": "tmp_acc_data.csv",
-            "ts_column": "time",
-            "value_column_1": "acc_x",
-            "qhd_key": "interq_qhd"
-        }
-        response = requests.get(endpoint, params=query_params)
-        print(response)
-        print(type(response.content))
-        from pprint import pprint
-        response = json.loads(response.content)
-        print(response)
-
-        # Return the QHDs
-
-            
-
-    def get_process_QH_path(self, path, cid="6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1", pwd="interq"):
+    def get_process_QH_path(self, path):
         part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
         process_end_ts, process_times = self.get_processing_times(acc_data)
         acc_features = self.extract_acc_features(acc_data)
         bfc_features = self.extract_bfc_features(bfc_data)
 
         qh_document = {
-            "pwd": pwd,
-            "cid": cid,
+            "pwd": self.pwd,
+            "cid": self.cid,
             "qhd": {
                 "qhd-header" : {
                     "owner": self.owner,
-                    "subject": f"part::cylinder_bottom,part_id::{part_id},process::milling",
+                    "subject": "part::cylinder_bottom,part_id::{part_id},process::milling",
                     "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
                     "model" : "ledom",
                     "asset" : "tessa"
@@ -288,6 +254,57 @@ class MillingProcessData:
     def get_process_QH_id(self, id):
         return self.get_process_QH_path(self._part_id_paths[id])
 
+    def get_data_QH_path(self, path, container_name):
+        part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
+
+        # Reformat timestamps to iso8601 for the data quality analysis to work
+        acc_data.time = pd.to_datetime(acc_data.time/1e6, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        bfc_data.time = pd.to_datetime(bfc_data.time/1e6, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        # Save as .csv and copy into docker container
+        acc_path = os.path.join(self.tmp_dir, "tmp_acc_data.csv")
+        bfc_path = os.path.join(self.tmp_dir, "tmp_bfc_data.csv")
+        acc_data.to_csv(acc_path)
+        bfc_data.to_csv(bfc_path)
+
+        container = self.docker_client.containers.get(container_name)
+        copy_to_container(container, src=acc_path, dst_dir="/app/data/")               
+        copy_to_container(container, src=bfc_path, dst_dir="/app/data/")
+
+        # Call the containers rest API with a rule
+        query_params = {
+            "file_name": "tmp_acc_data.csv",
+            "ts_column": "time",
+            "value_column_1": "acc_x",
+            "qhd_key": "interq_qhd"
+        }
+        response = requests.get(self.dqaas_endpoint, params=query_params)
+        response = json.loads(response.content)
+        return response
+
+    def get_data_QH_id(self, id, container_name):
+        return self.get_data_QH_path(self._part_id_paths[id], container_name)
+
+    def publish_process_QH_id(self, id):
+        qh_document = self.get_process_QH_id(id)
+        response = requests.post(self.api_endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
+
+    def publish_data_QH_id(self, id, container_name):
+        qh_document = self.get_data_QH_id(id, container_name)
+        #qh_document["qhd"]["qhd-header"]["timeref"] Datum wo qh erstellt wurde oder Datum der Prozessdaten?
+
+        # reformatting so that endpoint accepts it
+        del qh_document["qhd"]["qhd-header"]["partID"]
+        del qh_document["qhd"]["qhd-header"]["processID"]
+        qh_document["pwd"] = self.pwd
+        qh_document["cid"] = self.cid
+
+
+        response = requests.post(self.api_endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
 
 if __name__ == "__main__":
     pass

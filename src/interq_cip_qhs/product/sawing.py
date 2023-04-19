@@ -1,5 +1,7 @@
 import pandas as pd
-
+import datetime
+import requests
+import json
 
 class SawingProductData:
     def __init__(self, path_csv):
@@ -24,16 +26,37 @@ class SawingProductData:
         )
         quality_data_en.set_index("id", inplace=True)
         self.quality_data = quality_data_en
+        self.pwd = "interq"
+        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
+        self.owner = "ptw"
+
 
     def get_product_QH_id(self, id):
         data = self.quality_data.loc[id]
-        return {
-            "part_id": id,
-            "part": "cylinder_bottom",
-            "process": "milling",
-            "measurement_time": data["measurement_timestamp"],
-            "surface_roughness": data["surface_roughness"],
-            "parallelism": data["parallelism"],
-            "groove_depth": data["groove_depth"],
-            "groove_diameter": data["groove_diameter"],
+        qh_document = {
+            "pwd": self.pwd,
+            "cid": self.cid,
+            "qhd": {
+                "qhd-header" : {
+                    "owner": self.owner,
+                    "subject": "part::cylinder_bottom,part_id::"+str(id)+",process::sawing,type::measurement",
+                    "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "model" : "ledom",
+                    "asset" : "tessa"
+                },
+                "qhd-body": {
+                    "IND_measurement_time": data["measurement_timestamp"],
+                    "IND_surface_roughness": data["surface_roughness"],
+                    "IND_parallelism": data["parallelism"],
+                    "IND_groove_depth": data["groove_depth"],
+                    "IND_groove_diameter": data["groove_diameter"]
+                }
+            }
         }
+        return qh_document
+        
+    def publish_product_QH_id(self, id, endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
+        qh_document = self.get_product_QH_id(id)
+        response = requests.post(endpoint, json = qh_document)
+        response = json.loads(response.content)
+        return response
