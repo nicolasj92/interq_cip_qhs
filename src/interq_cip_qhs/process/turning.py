@@ -238,9 +238,19 @@ class TurningProcessData:
         del data_qh["qhd"]["qhd-header"]["processID"]
         data_qh["pwd"] = self.pwd
         data_qh["cid"] = self.cid
+        data_qh["qhd"]["qhd-body"] = self.reformatAtomicFields(data_qh["qhd"]["qhd-body"])
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
         return response
+
+    def reformatAtomicFields(self, document):
+        for attribute, value in document.copy().items():
+            if type(value) in [str, int, float, bool, list]:
+                del document[attribute]
+                document["IND_" + attribute] = value
+            elif type(value) == dict:
+                document[attribute] = self.reformatAtomicFields(document[attribute])
+        return document
 
 if __name__ == "__main__":
     pass
