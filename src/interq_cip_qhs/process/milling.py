@@ -133,6 +133,7 @@ class MillingProcessData:
                 },
             )
             data = pd.concat([data, process_data])
+
         return data
 
     def read_raw_bfc(self, name, bfc_data, ts_data):
@@ -216,24 +217,32 @@ class MillingProcessData:
 
     def get_process_QH_path(self, path):
         part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
+
         process_end_ts, process_times = self.get_processing_times(acc_data)
         acc_features = self.extract_acc_features(acc_data)
         bfc_features = self.extract_bfc_features(bfc_data)
+
+        acc_features.index = pd.Categorical(acc_features.index, categories=acc_data.id.unique(), ordered=True)
+        bfc_features.index = pd.Categorical(bfc_features.index, categories=acc_data.id.unique(), ordered=True)
+        acc_features = acc_features.sort_index()
+        bfc_features = bfc_features.sort_index()
 
         qh_document = {
             "pwd": self.pwd,
             "cid": self.cid,
             "qhd": {
-                "qhd-header" : {
+                "qhd-header": {
                     "owner": self.owner,
-                    "subject": "part::cylinder_bottom,part_id::" + part_id + ",process::milling",
-                    "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "model" : "None",
-                    "asset" : "type::process_qh"
+                    "subject": "part::cylinder_bottom,part_id::"
+                    + part_id
+                    + ",process::milling",
+                    "timeref": datetime.datetime.fromtimestamp(
+                        process_end_ts / 1e6
+                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "model": "None",
+                    "asset": "type::process_qh",
                 },
-                "qhd-body": {
-            
-                }
+                "qhd-body": {},
             },
         }
         for process_name in self.processes:
@@ -258,9 +267,13 @@ class MillingProcessData:
         part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
 
         # Reformat timestamps to iso8601 for the data quality analysis to work
-        acc_data.time = pd.to_datetime(acc_data.time/1e6, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-        bfc_data.time = pd.to_datetime(bfc_data.time/1e6, unit="s").dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-        
+        acc_data.time = pd.to_datetime(acc_data.time / 1e6, unit="s").dt.strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        bfc_data.time = pd.to_datetime(bfc_data.time / 1e6, unit="s").dt.strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+
         # Save as .csv and copy into docker container
         acc_path = os.path.join(self.tmp_dir, "tmp_acc_data.csv")
         bfc_path = os.path.join(self.tmp_dir, "tmp_bfc_data.csv")
@@ -268,7 +281,7 @@ class MillingProcessData:
         bfc_data.to_csv(bfc_path)
 
         container = self.docker_client.containers.get(container_name)
-        copy_to_container(container, src=acc_path, dst_dir="/app/data/")               
+        copy_to_container(container, src=acc_path, dst_dir="/app/data/")
         copy_to_container(container, src=bfc_path, dst_dir="/app/data/")
 
         # Call the containers rest API with a rule
@@ -276,7 +289,7 @@ class MillingProcessData:
             "file_name": "tmp_acc_data.csv",
             "ts_column": "time",
             "value_column_1": "acc_x",
-            "qhd_key": "interq_qhd"
+            "qhd_key": "interq_qhd",
         }
         response = requests.get(self.dqaas_endpoint, params=query_params)
         response = json.loads(response.content)
@@ -287,15 +300,19 @@ class MillingProcessData:
 
     def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
-        response = requests.post(self.api_endpoint, json = qh_document)
+        response = requests.post(self.api_endpoint, json=qh_document)
         response = json.loads(response.content)
         return response
 
     def publish_data_QH_id(self, id, container_name):
         process_qh = self.get_process_QH_id(id)
         data_qh = self.get_data_QH_id(id, container_name)
-        data_qh["qhd"]["qhd-header"]["timeref"] = process_qh["qhd"]["qhd-header"]["timeref"]
-        data_qh["qhd"]["qhd-header"]["subject"] = process_qh["qhd"]["qhd-header"]["subject"]
+        data_qh["qhd"]["qhd-header"]["timeref"] = process_qh["qhd"]["qhd-header"][
+            "timeref"
+        ]
+        data_qh["qhd"]["qhd-header"]["subject"] = process_qh["qhd"]["qhd-header"][
+            "subject"
+        ]
         data_qh["qhd"]["qhd-header"]["asset"] = "type::data_qh"
         data_qh["qhd"]["qhd-header"]["model"] = "None"
         # reformatting so that endpoint accepts it
