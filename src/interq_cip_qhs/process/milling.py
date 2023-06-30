@@ -233,9 +233,7 @@ class MillingProcessData:
             "qhd": {
                 "qhd-header": {
                     "owner": self.owner,
-                    "subject": "part::cylinder_bottom,part_id::"
-                    + part_id
-                    + ",process::milling",
+                    "subject": "part::cylinder_bottom,part_id::" + part_id + ",process::milling,type::process_qh",
                     "timeref": datetime.datetime.fromtimestamp(
                         process_end_ts / 1e6
                     ).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -296,7 +294,29 @@ class MillingProcessData:
         return response
 
     def get_data_QH_id(self, id, container_name):
-        return self.get_data_QH_path(self._part_id_paths[id], container_name)
+        data_qh = self.get_data_QH_path(self._part_id_paths[id], container_name)
+        process_qh = self.get_process_QH_id(id)
+        
+        # take timestamp from process end. Otherwise timeref of data qh service would be time of processing, 
+        # which we chose not to record here as it is not interesting
+        data_qh["qhd"]["qhd-header"]["timeref"] = process_qh["qhd"]["qhd-header"][
+            "timeref"
+        ]
+
+        # reformatting for identification
+        data_qh["qhd"]["qhd-header"]["subject"] = "part::cylinder_bottom,part_id::" + id + ",process::milling,type::data_qh"
+        data_qh["qhd"]["qhd-header"]["asset"] = "type::data_qh"
+        data_qh["qhd"]["qhd-header"]["model"] = "None"
+
+        # reformatting so that endpoint accepts it
+        del data_qh["qhd"]["qhd-header"]["partID"]
+        del data_qh["qhd"]["qhd-header"]["processID"]
+        data_qh["pwd"] = self.pwd
+        data_qh["cid"] = self.cid
+
+        # add "_IND" to all atomic elements in qhd-body
+        data_qh["qhd"]["qhd-body"] = self.reformatAtomicFields(data_qh["qhd"]["qhd-body"])
+        return data_qh
 
     def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
@@ -305,23 +325,7 @@ class MillingProcessData:
         return response
 
     def publish_data_QH_id(self, id, container_name):
-        process_qh = self.get_process_QH_id(id)
         data_qh = self.get_data_QH_id(id, container_name)
-        data_qh["qhd"]["qhd-header"]["timeref"] = process_qh["qhd"]["qhd-header"][
-            "timeref"
-        ]
-        data_qh["qhd"]["qhd-header"]["subject"] = process_qh["qhd"]["qhd-header"][
-            "subject"
-        ]
-        data_qh["qhd"]["qhd-header"]["asset"] = "type::data_qh"
-        data_qh["qhd"]["qhd-header"]["model"] = "None"
-        # reformatting so that endpoint accepts it
-        del data_qh["qhd"]["qhd-header"]["partID"]
-        del data_qh["qhd"]["qhd-header"]["processID"]
-        data_qh["pwd"] = self.pwd
-        data_qh["cid"] = self.cid
-        # add "_IND" to all atomic elements in qhd-body
-        data_qh["qhd"]["qhd-body"] = self.reformatAtomicFields(data_qh["qhd"]["qhd-body"])
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
         return response

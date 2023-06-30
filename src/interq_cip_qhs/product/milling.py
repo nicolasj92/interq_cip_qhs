@@ -39,7 +39,7 @@ class MillingProductData:
             "qhd": {
                 "qhd-header" : {
                     "owner": self.owner,
-                    "subject": "part::cylinder_bottom,part_id::" + id + ",process::milling",
+                    "subject": "part::cylinder_bottom,part_id::" + id + ",process::milling,type::product_qh",
                     "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
                     "model" : "None",
                     "asset" : "type::product_qh"
@@ -57,6 +57,7 @@ class MillingProductData:
         
     def publish_product_QH_id(self, id, endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
         qh_document = self.get_product_QH_id(id)
+        jprint(qh_document)
         response = requests.post(endpoint, json = qh_document)
         response = json.loads(response.content)
         return response
