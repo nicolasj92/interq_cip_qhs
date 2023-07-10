@@ -9,19 +9,15 @@ class TurningProductData:
         quality_data_en = pd.DataFrame(
             columns=[
                 "id",
-                "measurement_timestamp",
-                "surface_roughness",
-                "parallelism",
-                "groove_depth",
-                "groove_diameter",
+                "coaxiality",
+                "diameter",
+                "length",
             ],
             data={
-                "id": quality_data.iloc[3:, 1],
-                "measurement_timestamp": quality_data.iloc[3:, 2],
-                "surface_roughness": quality_data.iloc[3:, 3].str.replace(",", "."),
-                "parallelism": quality_data.iloc[3:, 4].str.replace(",", "."),
-                "groove_depth": quality_data.iloc[3:, 5].str.replace(",", "."),
-                "groove_diameter": quality_data.iloc[3:, 6].str.replace(",", "."),
+                "id": quality_data.iloc[7:, 1],
+                "coaxiality": quality_data.iloc[7:, 2].str.replace(",", "."),
+                "diameter": quality_data.iloc[7:, 4].str.replace(",", "."),
+                "length": quality_data.iloc[7:, 6].str.replace(",", "."),
             },
         )
         quality_data_en.set_index("id", inplace=True)
@@ -40,16 +36,14 @@ class TurningProductData:
                 "qhd-header" : {
                     "owner": self.owner,
                     "subject": "part::piston_rod,part_id::" +  id + ",process::turning,type::product_qh",
-                    "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "timeref": "None",
                     "model" : "None",
                     "asset" : "type::product_qh"
                 },
                 "qhd-body": {
-                    "IND_measurement_time": data["measurement_timestamp"],
-                    "IND_surface_roughness": data["surface_roughness"],
-                    "IND_parallelism": data["parallelism"],
-                    "IND_groove_depth": data["groove_depth"],
-                    "IND_groove_diameter": data["groove_diameter"]
+                    "IND_coaxiality": data["coaxiality"],
+                    "IND_diameter": data["diameter"],
+                    "IND_length": data["length"],
                 }
             }
         }
