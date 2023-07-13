@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# cip_dmd process data h5 files
+saw_process_data.h5
+turning_process_data.h5
