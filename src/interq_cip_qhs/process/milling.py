@@ -11,33 +11,34 @@ from pathlib import Path
 from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 from interq_cip_qhs.process.utils import copy_to_container, jprint
 from interq_cip_qhs.config import Config
+import csv
 config = Config()
 
 class MillingProcessData:
-    def __init__(self, path_data):
+    def __init__(self):
         self.owner = "ptw"
         self.docker_client = docker.from_env()
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
-        self._path = path_data
+        self._path = os.path.join(config.DATASET_PATH, "cylinder_bottom", "cnc_milling_machine", "process_data")
         self._init_path_dict()
         self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
         self.pwd = "interq"
         self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
         self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
         self.processes = [
-            "side_1_aussenkontur_schruppen_schlichten",
-            "side_1_bohren",
-            "side_1_bohren_seitlich",
-            "side_1_bohren_senken",
-            "side_1_endgraten_aussenkontur_bohrungen",
-            "side_1_gewinde_fraesen",
-            "side_1_nut_seitlich",
-            "side_1_planfraesen",
-            "side_1_stufenbohrung",
-            "side_2_planfraesen",
-            "side_2_kreistasche_fraesen",
-            "side_2_bauteil_entgraten",
-            "side_2_ringnut",
+            "side_1_outer_contour_roughing_and_finishing",
+            "side_1_drilling",
+            "side_1_lateral_drilling",
+            "side_1_drilling_countersinking",
+            "side_1_outer_contour_deburring_holes",
+            "side_1_thread_miling",
+            "side_1_lateral_groove",
+            "side_1_face_milling",
+            "side_1_stepped_bore",
+            "side_2_face_milling",
+            "side_2_circular_pocket_milling",
+            "side_2_component_deburring",
+            "side_2_ring_groove",
         ]
         self.acc_features = ["acc_x", "acc_y", "acc_z"]
         self.bfc_features = [
@@ -137,6 +138,41 @@ class MillingProcessData:
 
         return data
 
+    def new_read_raw_bfc(self, name, bfc_data, ts_data):
+        timestamps, processes = self.get_sorted_timestamps_processes(ts_data)
+        timestamps = timestamps/1e6
+        data = pd.DataFrame(columns=["id", "time", *self.bfc_features])
+        
+        for i in range(len(timestamps)):
+            if len(bfc_data[
+                
+                        (bfc_data[:,0] >= timestamps[i])
+                        
+                ]) == 0:
+                print("WARNING")
+            if i < len(timestamps) - 1:
+                bfc_process_data = bfc_data[
+                    (
+                        (bfc_data[:,0] >= timestamps[i])
+                        & (bfc_data[:,0] < timestamps[i + 1])
+                    )
+                ]
+            else:
+                bfc_process_data = bfc_data[bfc_data[:,0] >= timestamps[i]]
+
+            process_data = pd.DataFrame(
+                columns=["id", "time"],
+                data={
+                    "id": [name + "_" + processes[i]] * len(bfc_process_data[:,0]),
+                    "time": bfc_process_data[:,0]
+                },
+            )
+            for feature_idx, feature in enumerate(self.bfc_features):
+                process_data[feature] = bfc_process_data[:,feature_idx + 1]
+                
+            data = pd.concat([data, process_data])
+        return data
+
     def read_raw_bfc(self, name, bfc_data, ts_data):
         timestamps, processes = self.get_sorted_timestamps_processes(ts_data)
 
@@ -184,7 +220,24 @@ class MillingProcessData:
         side_2_acc = h5py.File(os.path.join(path, side_2_acc))
         side_2_acc_data = np.array(side_2_acc["data"])
 
-        with open(os.path.join(path, side_1_ts)) as f:
+        side_1_bfc = h5py.File(os.path.join(path, side_1_bfc))
+        side_1_bfc_data = np.array(side_1_bfc["data"])
+
+        side_2_bfc = h5py.File(os.path.join(path, side_2_bfc))
+        side_2_bfc_data = np.array(side_2_bfc["data"])
+
+        side_1_ts_data = {}
+        with open(os.path.join(path, side_1_ts), newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+            for row in reader:
+                side_1_ts_data[row[0]] = row[1]
+        
+        side_2_ts_data = {}
+        with open(os.path.join(path, side_2_ts), newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+            for row in reader:
+                side_2_ts_data[row[0]] = row[1]
+        """with open(os.path.join(path, side_1_ts)) as f:
             side_1_ts_data = json.load(f)
 
         with open(os.path.join(path, side_2_ts)) as f:
@@ -194,14 +247,14 @@ class MillingProcessData:
             side_1_bfc_data = json.load(f)
 
         with open(os.path.join(path, side_2_bfc)) as f:
-            side_2_bfc_data = json.load(f)
+            side_2_bfc_data = json.load(f)"""
 
         acc_data_side_1 = self.read_raw_acc("side_1", side_1_acc_data, side_1_ts_data)
         acc_data_side_2 = self.read_raw_acc("side_2", side_2_acc_data, side_2_ts_data)
         acc_data = pd.concat([acc_data_side_1, acc_data_side_2])
 
-        bfc_data_side_1 = self.read_raw_bfc("side_1", side_1_bfc_data, side_1_ts_data)
-        bfc_data_side_2 = self.read_raw_bfc("side_2", side_2_bfc_data, side_2_ts_data)
+        bfc_data_side_1 = self.new_read_raw_bfc("side_1", side_1_bfc_data, side_1_ts_data)
+        bfc_data_side_2 = self.new_read_raw_bfc("side_2", side_2_bfc_data, side_2_ts_data)
         bfc_data = pd.concat([bfc_data_side_1, bfc_data_side_2])
 
         return part_id, acc_data, bfc_data
@@ -321,14 +374,20 @@ class MillingProcessData:
 
     def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
+        print("publishing document:")
+        jprint(qh_document)
         response = requests.post(self.api_endpoint, json=qh_document)
         response = json.loads(response.content)
+        print("got response: ")
         return response
 
     def publish_data_QH_id(self, id, container_name):
         data_qh = self.get_data_QH_id(id, container_name)
+        print("publishing document:")
+        jprint(data_qh)
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
+        print("got response: ")
         return response
 
     def reformatAtomicFields(self, document):
@@ -339,6 +398,12 @@ class MillingProcessData:
             elif type(value) == dict:
                 document[attribute] = self.reformatAtomicFields(document[attribute])
         return document
+
+    def publish_all_process_and_data_qh(self):
+        for id in self._part_id_paths:
+            self.publish_process_QH_id(id)
+            self.publish_data_QH_id(id)
+
 
 if __name__ == "__main__":
     pass

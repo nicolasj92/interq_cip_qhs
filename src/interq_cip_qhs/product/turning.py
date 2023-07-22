@@ -5,6 +5,9 @@ import json
 from interq_cip_qhs.process.utils import copy_to_container, jprint
 from interq_cip_qhs.config import Config
 config = Config()
+
+## KNOWN BUG: there are no timestamps for turning quality data measurements. but without timeref, api doesnt accept hallmark
+
 class TurningProductData:
     def __init__(self, path_csv):
         quality_data = pd.read_csv(path_csv, delimiter=";", encoding="latin1")
@@ -55,6 +58,14 @@ class TurningProductData:
         
     def publish_product_QH_id(self, id):
         qh_document = self.get_product_QH_id(id)
-        response = requests.post(self.endpoint, json = qh_document)
+        print("publishing document: ")
+        jprint(qh_document)
+        response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
+        print("got response: ")
+        jprint(response)
         return response
+
+    def publish_all_product_qh(self):
+        for id, row in self.quality_data.iterrows():
+            self.publish_product_QH_id(id)

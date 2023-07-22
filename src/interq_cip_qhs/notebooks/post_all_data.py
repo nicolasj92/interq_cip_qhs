@@ -13,11 +13,13 @@ from interq_cip_qhs.product.turning import TurningProductData
 from interq_cip_qhs.config import Config
 config = Config()
 
-reader = MillingProcessData(
+# can't use quality data from dataset because we need timestamp for quality hallmarks
+milling_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/quality_data_cylinder_bottom.csv"
+turning_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/quality_data_piston_rods.csv"
+sawing_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/quality_data_sawing.csv"
 
-    path_data = os.path.join(config.DATASET_PATH, "cylinder_bottom", "cnc_milling_machine" , "process_data")
-)
-qh = reader.get_process_QH_id("100101")
-jprint(qh)
-a = reader.publish_process_QH_id("100101")
-jprint(a)
+
+reader = MillingProcessData()
+print("Initialized reader")
+reader.publish_all_process_and_data_qh()
+

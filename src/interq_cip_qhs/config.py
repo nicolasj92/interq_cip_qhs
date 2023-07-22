@@ -1,3 +1,3 @@
 class Config:
     def __init__(self):
-        self.DATASET_PATH = "Z:\\cip_dmd"
+        self.DATASET_PATH = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/data/cip_dmd"

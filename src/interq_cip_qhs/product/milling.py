@@ -64,7 +64,14 @@ class MillingProductData:
         
     def publish_product_QH_id(self, id):
         qh_document = self.get_product_QH_id(id)
+        print("publishing document: ")
         jprint(qh_document)
-        response = requests.post(self.endpoint, json = qh_document)
+        response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
+        print("got response: ")
+        jprint(response)
         return response
+
+    def publish_all_product_qh(self):
+        for id, row in self.quality_data.iterrows():
+            self.publish_product_QH_id(id)

@@ -39,7 +39,7 @@ class SawingProductData:
             "qhd": {
                 "qhd-header" : {
                     "owner": self.owner,
-                    "subject": "part::cylinder_bottom,part_id::" + id + ",process::sawing,type::product_qh",
+                    "subject": "part::cylinder_bottom,part_id::" + str(id) + ",process::sawing,type::product_qh",
                     "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d-%m-%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
                     "model" : "None",
                     "asset" : "type::product_qh"
@@ -53,6 +53,14 @@ class SawingProductData:
         
     def publish_product_QH_id(self, id):
         qh_document = self.get_product_QH_id(id)
-        response = requests.post(self.endpoint, json = qh_document)
+        print("publishing document: ")
+        jprint(qh_document)
+        response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
+        print("got response: ")
+        jprint(response)
         return response
+
+    def publish_all_product_qh(self):
+        for id, row in self.quality_data.iterrows():
+            self.publish_product_QH_id(id)
