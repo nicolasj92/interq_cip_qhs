@@ -11,7 +11,10 @@ import math
 from pathlib import Path
 from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 from interq_cip_qhs.process.utils import copy_to_container, jprint
+from interq_cip_qhs.config import Config
 import pprint
+
+config = Config()
 
 
 class TurningProcessData:

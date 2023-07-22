@@ -10,7 +10,8 @@ import requests
 from pathlib import Path
 from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 from interq_cip_qhs.process.utils import copy_to_container, jprint
-
+from interq_cip_qhs.config import Config
+config = Config()
 
 class MillingProcessData:
     def __init__(self, path_data):
@@ -168,20 +169,20 @@ class MillingProcessData:
         return data
 
     def read_raw_from_folder(self, path):
-        side_1_acc = "part1.h5"
-        side_2_acc = "part2.h5"
-        side_1_ts = "part_1_timestamp_process_pairs.json"
-        side_2_ts = "part_2_timestamp_process_pairs.json"
-        side_1_bfc = "part_1_bfc_data.json"
-        side_2_bfc = "part_2_bfc_data.json"
+        side_1_acc = "frontside_external_sensor_signals.h5"
+        side_2_acc = "backside_external_sensor_signals.h5"
+        side_1_ts = "frontside_timestamp_process_pairs.csv"
+        side_2_ts = "backside_timestamp_process_pairs.csv"
+        side_1_bfc = "frontside_internal_machine_signals.h5"
+        side_2_bfc = "backside_internal_machine_signals.h5"
 
         part_id = os.path.basename(path).split("_")[0]
 
         side_1_acc = h5py.File(os.path.join(path, side_1_acc))
-        side_1_acc_data = np.array(side_1_acc["0"])
+        side_1_acc_data = np.array(side_1_acc["data"])
 
         side_2_acc = h5py.File(os.path.join(path, side_2_acc))
-        side_2_acc_data = np.array(side_2_acc["0"])
+        side_2_acc_data = np.array(side_2_acc["data"])
 
         with open(os.path.join(path, side_1_ts)) as f:
             side_1_ts_data = json.load(f)

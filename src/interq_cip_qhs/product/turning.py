@@ -2,7 +2,9 @@ import pandas as pd
 import datetime
 import requests
 import json
-
+from interq_cip_qhs.process.utils import copy_to_container, jprint
+from interq_cip_qhs.config import Config
+config = Config()
 class TurningProductData:
     def __init__(self, path_csv):
         quality_data = pd.read_csv(path_csv, delimiter=";", encoding="latin1")
@@ -25,6 +27,8 @@ class TurningProductData:
         self.pwd = "interq"
         self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
         self.owner = "ptw"
+        self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
+        self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
 
 
     def get_product_QH_id(self, id):
@@ -49,8 +53,8 @@ class TurningProductData:
         }
         return qh_document
         
-    def publish_product_QH_id(self, id, endpoint = 'http://localhost:6005/interq/tf/v1.0/qhs'):
+    def publish_product_QH_id(self, id):
         qh_document = self.get_product_QH_id(id)
-        response = requests.post(endpoint, json = qh_document)
+        response = requests.post(self.endpoint, json = qh_document)
         response = json.loads(response.content)
         return response
