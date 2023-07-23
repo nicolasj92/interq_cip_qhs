@@ -112,7 +112,8 @@ class MillingProcessData:
     def read_raw_acc(self, name, acc_data, ts_data):
         timestamps, processes = self.get_sorted_timestamps_processes(ts_data)
         data = pd.DataFrame(columns=["id", "time", *self.acc_features])
-
+        print("difference first timestamp acc_features " + str((timestamps[0] - acc_data[0][0])/1e6) + " on side " + name)
+        print("difference last timestamp acc_features " + str((timestamps[-1] - acc_data[-1][0])/1e6) + " on side " + name)
         for i in range(len(timestamps)):
             if i < len(timestamps) - 1:
                 process_data = acc_data[
@@ -142,12 +143,11 @@ class MillingProcessData:
         timestamps, processes = self.get_sorted_timestamps_processes(ts_data)
         timestamps = timestamps/1e6
         data = pd.DataFrame(columns=["id", "time", *self.bfc_features])
-        
+        print("difference first timestamp bfc_features " + str(timestamps[0] - bfc_data[0][0]) + " on side " + name)
+        print("difference last timestamp bfc_features " + str(timestamps[-1] - bfc_data[-1][0]) + " on side " + name)
         for i in range(len(timestamps)):
             if len(bfc_data[
-                
-                        (bfc_data[:,0] >= timestamps[i])
-                        
+                        (bfc_data[:,0] >= timestamps[i])     
                 ]) == 0:
                 print("WARNING")
             if i < len(timestamps) - 1:
@@ -160,10 +160,16 @@ class MillingProcessData:
             else:
                 bfc_process_data = bfc_data[bfc_data[:,0] >= timestamps[i]]
 
+            # safeguard to ensure shape of bfc_data even when no correspondences can be made
+            len_bfc_process_data = len(bfc_process_data[:,0])
+            if len_bfc_process_data == 0:
+                len_bfc_process_data = 1
+                bfc_process_data = np.zeros((1, bfc_data.shape[1]))
+
             process_data = pd.DataFrame(
                 columns=["id", "time"],
                 data={
-                    "id": [name + "_" + processes[i]] * len(bfc_process_data[:,0]),
+                    "id": [name + "_" + processes[i]] * len_bfc_process_data,
                     "time": bfc_process_data[:,0]
                 },
             )
@@ -256,6 +262,7 @@ class MillingProcessData:
         bfc_data_side_1 = self.new_read_raw_bfc("side_1", side_1_bfc_data, side_1_ts_data)
         bfc_data_side_2 = self.new_read_raw_bfc("side_2", side_2_bfc_data, side_2_ts_data)
         bfc_data = pd.concat([bfc_data_side_1, bfc_data_side_2])
+
 
         return part_id, acc_data, bfc_data
 
@@ -379,6 +386,7 @@ class MillingProcessData:
         response = requests.post(self.api_endpoint, json=qh_document)
         response = json.loads(response.content)
         print("got response: ")
+        jprint(response)
         return response
 
     def publish_data_QH_id(self, id, container_name):
@@ -388,6 +396,7 @@ class MillingProcessData:
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
         print("got response: ")
+        jprint(response)
         return response
 
     def reformatAtomicFields(self, document):
@@ -402,7 +411,7 @@ class MillingProcessData:
     def publish_all_process_and_data_qh(self):
         for id in self._part_id_paths:
             self.publish_process_QH_id(id)
-            self.publish_data_QH_id(id)
+            self.publish_data_QH_id(id, "angry_williamson")
 
 
 if __name__ == "__main__":

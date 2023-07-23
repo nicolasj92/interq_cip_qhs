@@ -18,8 +18,27 @@ milling_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darm
 turning_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/quality_data_piston_rods.csv"
 sawing_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/quality_data_sawing.csv"
 
+sawing_and_turning_process_data_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/"
+# sawing and turning process data expected as single .h5 files ("turning_process_data.h5", vice versa) with time progressing in first dimension
+
+
+#reader = TurningProductData(turning_quality_data_with_ts_path)
+#reader.publish_all_product_qh()
+
+#reader = SawingProductData(sawing_quality_data_with_ts_path)
+#reader.publish_all_product_qh()
+
+#reader = MillingProductData(milling_quality_data_with_ts_path)
+#reader.publish_all_product_qh()
+
+#reader = TurningProcessData(sawing_and_turning_process_data_path)
+#reader.publish_all_process_and_data_qh()
+
+#reader = SawingProcessData(sawing_and_turning_process_data_path)
+#reader.publish_all_process_and_data_qh()
 
 reader = MillingProcessData()
-print("Initialized reader")
 reader.publish_all_process_and_data_qh()
+
+
 

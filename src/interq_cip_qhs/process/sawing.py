@@ -81,7 +81,7 @@ class SawingProcessData:
 
 
     def read_raw_from_id(self, id):
-        path = os.path.join(self._path, "saw_process_data.h5")
+        path = os.path.join(self._path, "sawing_process_data.h5")
         try:
             hf = h5py.File(path, 'r')
         except:
@@ -193,14 +193,22 @@ class SawingProcessData:
 
     def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
+        print("publishing document:")
+        jprint(qh_document)
         response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
+        print("got response: ")
+        jprint(response)
         return response
 
     def publish_data_QH_id(self, id, container_name):
         data_qh = self.get_data_QH_id(id, container_name)
+        print("publishing document:")
+        jprint(data_qh)
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
+        print("got response: ")
+        jprint(response)
         return response
 
     def reformatAtomicFields(self, document):
@@ -211,6 +219,13 @@ class SawingProcessData:
             elif type(value) == dict:
                 document[attribute] = self.reformatAtomicFields(document[attribute])
         return document
+
+    def publish_all_process_and_data_qh(self):
+        path = os.path.join(self._path, "sawing_process_data.h5")
+        hf = h5py.File(path, 'r')
+        for key in hf.keys():
+            self.publish_process_QH_id(key)
+            self.publish_data_QH_id(key, "angry_williamson")
 
 if __name__ == "__main__":
     pass
