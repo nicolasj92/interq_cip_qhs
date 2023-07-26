@@ -43,7 +43,8 @@ class TurningProductData:
                 "qhd-header" : {
                     "owner": self.owner,
                     "subject": "part::piston_rod,part_id::" +  id + ",process::turning,type::product_qh",
-                    "timeref": "None",
+                    # randomly picked timeref cuz we don't have none
+                    "timeref": "2022-08-16T09:10:26Z",
                     "model" : "None",
                     "asset" : "type::product_qh"
                 },
