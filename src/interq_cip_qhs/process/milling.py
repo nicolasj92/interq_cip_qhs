@@ -21,8 +21,9 @@ class MillingProcessData:
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
         self._path = os.path.join(config.DATASET_PATH, "cylinder_bottom", "cnc_milling_machine", "process_data")
         self._init_path_dict()
-        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
-        self.pwd = "interq"
+        self.pwd = config.pwd
+        self.cid = config.cid
+        self.model = config.model
         self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
         self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
         self.processes = [
@@ -297,8 +298,8 @@ class MillingProcessData:
                     "subject": "part::cylinder_bottom,part_id::" + part_id + ",process::milling,type::process_qh",
                     "timeref": datetime.datetime.fromtimestamp(
                         process_end_ts / 1e6
-                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "model": "None",
+                    ).strftime("%Y-%m-%dT%H:%M:%S+01:00"),
+                    "model": self.model,
                     "asset": "type::process_qh",
                 },
                 "qhd-body": {},
@@ -327,10 +328,10 @@ class MillingProcessData:
 
         # Reformat timestamps to iso8601 for the data quality analysis to work
         acc_data.time = pd.to_datetime(acc_data.time / 1e6, unit="s").dt.strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
+            "%Y-%m-%dT%H:%M:%S+01:00"
         )
         bfc_data.time = pd.to_datetime(bfc_data.time / 1e6, unit="s").dt.strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
+            "%Y-%m-%dT%H:%M:%S+01:00"
         )
 
         # Save as .csv and copy into docker container
@@ -367,7 +368,7 @@ class MillingProcessData:
         # reformatting for identification
         data_qh["qhd"]["qhd-header"]["subject"] = "part::cylinder_bottom,part_id::" + id + ",process::milling,type::data_qh"
         data_qh["qhd"]["qhd-header"]["asset"] = "type::data_qh"
-        data_qh["qhd"]["qhd-header"]["model"] = "None"
+        data_qh["qhd"]["qhd-header"]["model"] = self.model
 
         # reformatting so that endpoint accepts it
         del data_qh["qhd"]["qhd-header"]["partID"]
@@ -382,7 +383,7 @@ class MillingProcessData:
     def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
         print("publishing document:")
-        jprint(qh_document)
+        #jprint(qh_document)
         response = requests.post(self.api_endpoint, json=qh_document)
         response = json.loads(response.content)
         print("got response: ")
@@ -392,7 +393,7 @@ class MillingProcessData:
     def publish_data_QH_id(self, id, container_name):
         data_qh = self.get_data_QH_id(id, container_name)
         print("publishing document:")
-        jprint(data_qh)
+        #jprint(data_qh)
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
         print("got response: ")
@@ -409,10 +410,28 @@ class MillingProcessData:
         return document
 
     def publish_all_process_and_data_qh(self):
-        for id in self._part_id_paths:
-            self.publish_process_QH_id(id)
-            self.publish_data_QH_id(id, "angry_williamson")
+        with open("milling_error_list.txt", 'a', newline='') as f:
+            writer = csv.writer(f)
 
+            for id in self._part_id_paths:
+                try:
+                    response = self.publish_process_QH_id(id)
+                    if "uuid" in response.keys():
+                        continue
+                    else:
+                        if "not unique" in response["message"]:
+                            print("hallmark already posted")
+                        while "some error condition" in response["message"]:
+                            response = self.publish_process_QH_id(id)
+                            if "uuid" in response.keys():
+                                break
+
+                    #self.publish_data_QH_id(id, "angry_williamson")
+                except Exception as error:
+                    print(error)
+                    writer.writerow(["error in " + str(id)])
+                    writer.writerow([str(error)])
+                    
 
 if __name__ == "__main__":
     pass

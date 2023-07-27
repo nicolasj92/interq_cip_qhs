@@ -6,8 +6,6 @@ from interq_cip_qhs.process.utils import copy_to_container, jprint
 from interq_cip_qhs.config import Config
 config = Config()
 
-## KNOWN BUG: there are no timestamps for turning quality data measurements. but without timeref, api doesnt accept hallmark
-
 class TurningProductData:
     def __init__(self, path_csv):
         quality_data = pd.read_csv(path_csv, delimiter=";", encoding="latin1")
@@ -27,8 +25,9 @@ class TurningProductData:
         )
         quality_data_en.set_index("id", inplace=True)
         self.quality_data = quality_data_en
-        self.pwd = "interq"
-        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
+        self.pwd = config.pwd
+        self.cid = config.cid
+        self.model = config.model
         self.owner = "ptw"
         self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
         self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
@@ -44,8 +43,8 @@ class TurningProductData:
                     "owner": self.owner,
                     "subject": "part::piston_rod,part_id::" +  id + ",process::turning,type::product_qh",
                     # randomly picked timeref cuz we don't have none
-                    "timeref": "2022-08-16T09:10:26Z",
-                    "model" : "None",
+                    "timeref": "2022-08-16T09:10:26+01:00",
+                    "model" : self.model,
                     "asset" : "type::product_qh"
                 },
                 "qhd-body": {
@@ -60,7 +59,7 @@ class TurningProductData:
     def publish_product_QH_id(self, id):
         qh_document = self.get_product_QH_id(id)
         print("publishing document: ")
-        jprint(qh_document)
+        #jprint(qh_document)
         response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
         print("got response: ")

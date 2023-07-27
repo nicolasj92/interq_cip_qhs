@@ -19,8 +19,9 @@ class SawingProcessData:
         self.tmp_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../tmp_files"))
         self._path = path_data
         self.process_name = "cutting"
-        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
-        self.pwd = "interq"
+        self.pwd = config.pwd
+        self.cid = config.cid
+        self.model = config.model
         self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
         self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
         self.features = [
@@ -126,8 +127,8 @@ class SawingProcessData:
                 "qhd-header": {
                     "owner": self.owner,
                     "subject": "part::cylinder_bottom,part_id::" + id + ",process::sawing,type::process_qh",
-                    "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "model" : "None",
+                    "timeref": datetime.datetime.fromtimestamp(process_end_ts/1e6).strftime('%Y-%m-%dT%H:%M:%S+01:00'),
+                    "model" : self.model,
                     "asset" : "type::process_qh"
                 },
                 "qhd-body": {
@@ -179,7 +180,7 @@ class SawingProcessData:
         # reformatting for identification
         data_qh["qhd"]["qhd-header"]["subject"] = "part::cylinder_bottom,part_id::" + id + ",process::sawing,type::data_qh"
         data_qh["qhd"]["qhd-header"]["asset"] = "type::data_qh"
-        data_qh["qhd"]["qhd-header"]["model"] = "None"
+        data_qh["qhd"]["qhd-header"]["model"] = self.model
 
         # reformatting so that endpoint accepts it
         del data_qh["qhd"]["qhd-header"]["partID"]
@@ -204,7 +205,7 @@ class SawingProcessData:
     def publish_data_QH_id(self, id, container_name):
         data_qh = self.get_data_QH_id(id, container_name)
         print("publishing document:")
-        jprint(data_qh)
+        #jprint(data_qh)
         response = requests.post(self.api_endpoint, json = data_qh)
         response = json.loads(response.content)
         print("got response: ")
@@ -225,7 +226,7 @@ class SawingProcessData:
         hf = h5py.File(path, 'r')
         for key in hf.keys():
             self.publish_process_QH_id(key)
-            self.publish_data_QH_id(key, "angry_williamson")
+            #self.publish_data_QH_id(key, "angry_williamson")
 
 if __name__ == "__main__":
     pass

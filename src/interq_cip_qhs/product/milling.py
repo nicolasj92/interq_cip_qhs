@@ -31,8 +31,9 @@ class MillingProductData:
         )
         quality_data_en.set_index("id", inplace=True)
         self.quality_data = quality_data_en
-        self.pwd = "interq"
-        self.cid = "6LHWRqwyG1jGobMJMyUjsgsA5u52y37dtiu6bPSrXFX1"
+        self.pwd = config.pwd
+        self.cid = config.cid
+        self.model = config.model
         self.owner = "ptw"
         self.api_endpoint = "http://localhost:6005/interq/tf/v1.0/qhs"
         self.dqaas_endpoint = "http://localhost:8000/DuplicateRecords/"
@@ -47,8 +48,8 @@ class MillingProductData:
                 "qhd-header" : {
                     "owner": self.owner,
                     "subject": "part::cylinder_bottom,part_id::" + id + ",process::milling,type::product_qh",
-                    "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "model" : "None",
+                    "timeref": datetime.datetime.strptime(data["measurement_timestamp"], '%d.%m.%Y %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%S+01:00'),
+                    "model" : self.model,
                     "asset" : "type::product_qh"
                 },
                 "qhd-body": {
@@ -65,7 +66,7 @@ class MillingProductData:
     def publish_product_QH_id(self, id):
         qh_document = self.get_product_QH_id(id)
         print("publishing document: ")
-        jprint(qh_document)
+        #jprint(qh_document)
         response = requests.post(self.api_endpoint, json = qh_document)
         response = json.loads(response.content)
         print("got response: ")
@@ -74,4 +75,11 @@ class MillingProductData:
 
     def publish_all_product_qh(self):
         for id, row in self.quality_data.iterrows():
-            self.publish_product_QH_id(id)
+            response = self.publish_product_QH_id(id)
+            if "uuid" in response.keys():
+                continue
+            else:
+                if "not unique" in response["message"]:
+                    print("hallmark already posted")
+                while "some error condition" in response["message"]:
+                    response = self.publish_process_QH_id(id)
