@@ -10,7 +10,9 @@ import requests
 from pathlib import Path
 from tsfresh.feature_extraction import extract_features, MinimalFCParameters
 from interq_cip_qhs.process.utils import copy_to_container, jprint
-
+from interq_cip_qhs.config import Config
+import time as tm
+config = Config()
 
 class SawingProcessData:
     def __init__(self, path_data):
@@ -195,8 +197,10 @@ class SawingProcessData:
     def publish_process_QH_id(self, id):
         qh_document = self.get_process_QH_id(id)
         print("publishing document:")
-        jprint(qh_document)
+        #jprint(qh_document)
+        timer = tm.time()
         response = requests.post(self.api_endpoint, json = qh_document)
+        print("time for processing post request: " + str(tm.time() - timer))
         response = json.loads(response.content)
         print("got response: ")
         jprint(response)

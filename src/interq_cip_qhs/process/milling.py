@@ -277,9 +277,9 @@ class MillingProcessData:
             process_end_ts = process_data.time.iloc[-1]
         return process_end_ts, processing_times
 
+
     def get_process_QH_path(self, path):
         part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
-
         process_end_ts, process_times = self.get_processing_times(acc_data)
         acc_features = self.extract_acc_features(acc_data)
         bfc_features = self.extract_bfc_features(bfc_data)
@@ -313,10 +313,10 @@ class MillingProcessData:
                 "IND_" + feature: acc_features.loc[process_name, feature]
                 for feature in acc_features.columns
             }
-            qh_document["qhd"]["qhd-body"][process_name]["features_bfc"] = {
+            """qh_document["qhd"]["qhd-body"][process_name]["features_bfc"] = {
                 "IND_" + feature: bfc_features.loc[process_name, feature]
                 for feature in bfc_features.columns
-            }
+            }"""
 
         return qh_document
 
@@ -410,9 +410,8 @@ class MillingProcessData:
         return document
 
     def publish_all_process_and_data_qh(self):
-        with open("milling_error_list.txt", 'a', newline='') as f:
+        with open("milling_process_error_list.txt", 'a', newline='') as f:
             writer = csv.writer(f)
-
             for id in self._part_id_paths:
                 try:
                     response = self.publish_process_QH_id(id)

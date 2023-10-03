@@ -4,7 +4,7 @@ import requests
 import json
 from interq_cip_qhs.config import Config
 from interq_cip_qhs.process.utils import copy_to_container, jprint
-
+import csv
 config = Config()
 
 
@@ -74,12 +74,22 @@ class MillingProductData:
         return response
 
     def publish_all_product_qh(self):
-        for id, row in self.quality_data.iterrows():
-            response = self.publish_product_QH_id(id)
-            if "uuid" in response.keys():
-                continue
-            else:
-                if "not unique" in response["message"]:
-                    print("hallmark already posted")
-                while "some error condition" in response["message"]:
-                    response = self.publish_process_QH_id(id)
+        with open("milling_product_error_list.txt", 'a', newline='') as f:
+            writer = csv.writer(f)
+            for id, row in self.quality_data.iterrows():
+                try:
+                    response = self.publish_product_QH_id(id)
+                    if "uuid" in response.keys():
+                        continue
+                    else:
+                        if "not unique" in response["message"]:
+                            print("hallmark already posted")
+                        while "some error condition" in response["message"]:
+                            response = self.publish_process_QH_id(id)
+
+
+                except Exception as error:
+                    print(error)
+                    writer.writerow(["error in " + str(id)])
+                    writer.writerow([str(error)])
+                        
