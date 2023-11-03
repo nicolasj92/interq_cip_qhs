@@ -113,8 +113,6 @@ class MillingProcessData:
     def read_raw_acc(self, name, acc_data, ts_data):
         timestamps, processes = self.get_sorted_timestamps_processes(ts_data)
         data = pd.DataFrame(columns=["id", "time", *self.acc_features])
-        print("difference first timestamp acc_features " + str((timestamps[0] - acc_data[0][0])/1e6) + " on side " + name)
-        print("difference last timestamp acc_features " + str((timestamps[-1] - acc_data[-1][0])/1e6) + " on side " + name)
         for i in range(len(timestamps)):
             if i < len(timestamps) - 1:
                 process_data = acc_data[
@@ -244,17 +242,6 @@ class MillingProcessData:
             reader = csv.reader(csvfile, delimiter=',', quotechar='|')
             for row in reader:
                 side_2_ts_data[row[0]] = row[1]
-        """with open(os.path.join(path, side_1_ts)) as f:
-            side_1_ts_data = json.load(f)
-
-        with open(os.path.join(path, side_2_ts)) as f:
-            side_2_ts_data = json.load(f)
-
-        with open(os.path.join(path, side_1_bfc)) as f:
-            side_1_bfc_data = json.load(f)
-
-        with open(os.path.join(path, side_2_bfc)) as f:
-            side_2_bfc_data = json.load(f)"""
 
         acc_data_side_1 = self.read_raw_acc("side_1", side_1_acc_data, side_1_ts_data)
         acc_data_side_2 = self.read_raw_acc("side_2", side_2_acc_data, side_2_ts_data)
@@ -276,6 +263,16 @@ class MillingProcessData:
             ) / 1e6
             process_end_ts = process_data.time.iloc[-1]
         return process_end_ts, processing_times
+
+    def get_process_acc_features(self, id):
+        path = self._part_id_paths[id]
+        part_id, acc_data, bfc_data = self.read_raw_from_folder(path)
+        process_end_ts, process_times = self.get_processing_times(acc_data)
+        acc_features = self.extract_acc_features(acc_data)
+        acc_features.index = pd.Categorical(acc_features.index, categories=acc_data.id.unique(), ordered=True)
+        acc_features = acc_features.sort_index()
+        return acc_features
+
 
 
     def get_process_QH_path(self, path):
@@ -305,19 +302,15 @@ class MillingProcessData:
                 "qhd-body": {},
             },
         }
-        for process_name in self.processes:
-            qh_document["qhd"]["qhd-body"][process_name] = {
-                "processing_time": process_times[process_name]
-            }
+        for process_name in self.processes:     
             qh_document["qhd"]["qhd-body"][process_name]["features_acc"] = {
                 "IND_" + feature: acc_features.loc[process_name, feature]
                 for feature in acc_features.columns
             }
-            """qh_document["qhd"]["qhd-body"][process_name]["features_bfc"] = {
+            qh_document["qhd"]["qhd-body"][process_name]["features_bfc"] = {
                 "IND_" + feature: bfc_features.loc[process_name, feature]
                 for feature in bfc_features.columns
-            }"""
-
+            }
         return qh_document
 
     def get_process_QH_id(self, id):
@@ -355,6 +348,9 @@ class MillingProcessData:
         response = json.loads(response.content)
         return response
 
+    def get_raw_data_QH_id(self, id, container_name):
+        return self.get_data_QH_path(self._part_id_paths[id], container_name)
+    
     def get_data_QH_id(self, id, container_name):
         data_qh = self.get_data_QH_path(self._part_id_paths[id], container_name)
         process_qh = self.get_process_QH_id(id)
