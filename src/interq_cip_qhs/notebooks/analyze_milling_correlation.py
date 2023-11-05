@@ -17,9 +17,6 @@ import random
 import datetime
 
 
-# can't use quality data from dataset because we need timestamp for quality hallmarks
-milling_quality_data_with_ts_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/quality_data_cylinder_bottom.csv"
-
 labels_path = "/home/mittwollen_h@PTW.Maschinenbau.TU-Darmstadt.de/interq_cip_qhs/src/interq_cip_qhs/notebooks/anomalous_parts_detailed.csv"
 all_anomal_keys = []
 anomal_1_keys = []
@@ -52,6 +49,7 @@ keys_normal = keys_normal[:45]
 
 new_ids = []
 initialized = False
+
 # generate features
 def generate_features(keys):
     global initialized, new_ids
@@ -81,11 +79,12 @@ print(labels)
 data = [*features_normal, *features_anomal]
 data = np.array(data)
 
-# analyze 
+# analyze correlation
 cov_matrix = np.corrcoef(data.T, labels, rowvar = True)
-
 
 feature_label_correlation = np.abs(cov_matrix[-1, :-1])
 max_idx = np.argmax(feature_label_correlation)
+
+# field with highest correlation to anomaly class 1
 print(new_ids[max_idx][2])
 
