@@ -134,3 +134,4 @@ turning_process_data.h5
 
 *.h5
 *.csv
+*.DS_STORE
